@@ -2,6 +2,9 @@ import locale
 import pyaudio
 import json
 import numpy as np
+import time
+from typing import List
+from sender import Exporter
 
 
 class DeviceInfo:
@@ -18,6 +21,13 @@ class DeviceInfo:
     def get_mic_devices(self):
         return [dev for dev in self.get_all_audio_devices() if dev["maxInputChannels"] > 0 and dev["hostApi"] == 0]
 
+    def get_mic_info_by_index(self, ind: int):
+        all_dev = self.get_all_audio_devices()
+        for dev in all_dev:
+            if dev.get('index') == ind:
+                return dev
+        return None
+
     def __repr__(self):
         return "\n".join(self.get_all_audio_devices())
 
@@ -31,8 +41,9 @@ class AudioStream:
         self.chunk = chunk
         self.stream = None
         self._pa = pyaudio.PyAudio()
+        self._sp = SignalProcessor()
 
-    def open_stream(self, is_input: bool = True):
+    def _open_stream(self, is_input: bool = True):
         self.stream = self._pa.open(format=self.format,
                                     channels=self.channels,
                                     rate=self.rate,
@@ -41,15 +52,68 @@ class AudioStream:
                                     input_device_index=self.mic_index)
 
     def read_data(self, exception_on_overflow: bool = False, dtype=np.int16):
-        return np.frombuffer(self.stream.read(self.chunk, exception_on_overflow=exception_on_overflow), dtype=dtype)
+        self._open_stream()
+        data = {}
+        try:
+            data = np.frombuffer(self.stream.read(self.chunk, exception_on_overflow=exception_on_overflow), dtype=dtype)
+        except IOError as e:
+            print(f"Error reading from {self.mic_index}: {e}")
+        return data
+
+    def get_decibel_data(self) -> dict:
+        decibel_data = {
+            "signal_strength_db": self._sp.calculate_decibels(self.read_data()),
+            "time": time.time(),
+            "mic_index": self.mic_index
+        }
+        return decibel_data
 
     def close_stream(self):
         self.stream.stop_stream()
         self.stream.close()
 
 
+class SignalProcessor:
+    @staticmethod
+    def calculate_decibels(audio_data: np.ndarray):
+        try:
+            rms = np.sqrt(np.abs(np.mean(np.square(audio_data))))
+            decibels = 20 * np.log10(rms)
+        except Exception as E:
+            print(E)
+            decibels = 0
+        return decibels
+
+
+class SignalConsumer:
+    def __init__(self, streams: List[AudioStream], exporter: Exporter):
+        self.streams = streams
+        self.exporter = exporter
+
+    def run(self):
+        try:
+            while True:
+                for stream in self.streams:
+                    stream_data = stream.get_decibel_data()
+                    self.exporter.send(stream_data)
+        except KeyboardInterrupt:
+            print("Terminating...")
+            for stream in self.streams:
+                stream.close_stream()
+
+
 if __name__ == "__main__":
     devs = DeviceInfo()
-    data = devs.get_all_audio_devices()
-    for i in data:
+    test_data = devs.get_mic_devices()
+    for i in test_data:
         print(i)
+
+    print(devs.get_mic_info_by_index(1))
+
+    a = AudioStream(1, 1, 44100)
+    list_audio_streams = [a]
+
+    from sender import StdOut
+    exporter = StdOut()
+    s = SignalConsumer(list_audio_streams, exporter)
+    s.run()
