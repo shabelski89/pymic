@@ -89,10 +89,11 @@ class SignalConsumer:
     def __init__(self, streams: List[AudioStream], exporter: Exporter):
         self.streams = streams
         self.exporter = exporter
+        self.is_running = True
 
     def run(self):
         try:
-            while True:
+            while self.is_running:
                 for stream in self.streams:
                     stream_data = stream.get_decibel_data()
                     self.exporter.send(stream_data)
@@ -100,6 +101,11 @@ class SignalConsumer:
             print("Terminating...")
             for stream in self.streams:
                 stream.close_stream()
+
+    def stop(self):
+        time.sleep(2)
+        self.is_running = False
+        print("Exit...")
 
 
 if __name__ == "__main__":
