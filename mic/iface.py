@@ -1,20 +1,22 @@
 from tkinter import *
 from tkinter import ttk
 from device import DeviceInfo, AudioStream, SignalConsumer
-from sender import HttpSender, FileSaver
+from sender import HttpSender, FileSaver, StdOut
+import sys, io
 
 
 class Choice:
     HTTP = 'HTTP'
     FILE = 'FILE'
+    STDOUT = 'STDOUT'
 
 
 class Application(Tk):
     def __init__(self):
         super().__init__()
         self.title("Audio Stream Configuration")
-        self.geometry('640x480')
-        self.maxsize(640, 480)
+        self.geometry('960x480')
+        # self.maxsize(640, 480)
         self.__iface_init()
 
     def __iface_init(self):
@@ -35,7 +37,7 @@ class Application(Tk):
                           command=lambda i=self.dev_selected_box, j=self.dev_box: self.box_items_replace(i, j))
         r_button.grid(row=2, column=2, padx=5, pady=5, sticky=S)
 
-        self.combobox = ttk.Combobox(values=['HTTP', 'FILE'], state="readonly")
+        self.combobox = ttk.Combobox(values=['HTTP', 'FILE', 'STDOUT'], state="readonly")
         self.combobox.bind('<<ComboboxSelected>>', self.combobox_modified)
         self.combobox.grid(row=2, column=5, padx=5, pady=5, sticky=N+W)
 
@@ -68,12 +70,14 @@ class Application(Tk):
         choice = self.combobox.get()
         if choice == Choice.HTTP:
             self.choice_label.config(text="Server URL:")
-            self.choice_label.grid(row=3, column=5, padx=5, pady=5)
-            self.choice_entry.grid(row=3, column=6, padx=5, pady=5)
+            self.choice_label.grid(row=2, column=5, padx=5, pady=5, sticky=S+W)
+            self.choice_entry.grid(row=2, column=6, padx=5, pady=5, sticky=S+W)
         elif choice == Choice.FILE:
             self.choice_label.config(text="Filename:")
-            self.choice_label.grid(row=3, column=5, padx=5, pady=5)
-            self.choice_entry.grid(row=3, column=6, padx=5, pady=5)
+            self.choice_label.grid(row=2, column=5, padx=5, pady=5, sticky=S+W)
+            self.choice_entry.grid(row=2, column=6, padx=5, pady=5, sticky=S+W)
+        elif choice == Choice.STDOUT:
+            self.text.grid(row=4, column=1, padx=5, pady=5, sticky=N+W)
         else:
             print('CHOOSE')
         return choice
@@ -95,14 +99,7 @@ class Application(Tk):
             first.delete(i)
 
     def start_streams(self):
-        choice = self.get_choice()
-        param = self.choice_entry.get()
-        if choice == Choice.HTTP:
-            self.exporter = HttpSender(param)
-        elif choice == Choice.FILE:
-            self.exporter = FileSaver(param)
-        else:
-            print('CHOOSE')
+
 
         mics = self.dev_selected_box.get(0, END)
         list_audio_streams = []
@@ -111,11 +108,32 @@ class Application(Tk):
             a = AudioStream(int(ind), 1, 44100)
             list_audio_streams.append(a)
 
+        choice = self.get_choice()
+        param = self.choice_entry.get()
+        if choice == Choice.HTTP:
+            self.exporter = HttpSender(param)
+        elif choice == Choice.FILE:
+            self.exporter = FileSaver(param)
+        elif choice == Choice.STDOUT:
+            self.exporter = StdOut()
+        self.stop_button.config(state=NORMAL)
+
         self.signal_consumer = SignalConsumer(list_audio_streams, self.exporter)
-        d = self.signal_consumer.run()
+        self.signal_consumer.start()
 
     def stop_stream(self):
         self.signal_consumer.stop()
+
+    def stdout(self):
+        try:
+            while True:
+                for stream in self.signal_consumer.streams:
+                    stream_data = stream.get_decibel_data()
+                    self.text.insert(1.0, str(stream_data) + '\n')
+        except KeyboardInterrupt:
+            print("Terminating...")
+            for stream in self.signal_consumer.streams:
+                stream.close_stream()
 
 
 if __name__ == "__main__":

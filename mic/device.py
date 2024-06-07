@@ -5,6 +5,7 @@ import numpy as np
 import time
 from typing import List
 from sender import Exporter
+from threading import Thread
 
 
 class DeviceInfo:
@@ -85,14 +86,16 @@ class SignalProcessor:
         return decibels
 
 
-class SignalConsumer:
+class SignalConsumer(Thread):
     def __init__(self, streams: List[AudioStream], exporter: Exporter):
+        super().__init__(target=self.run)
         self.streams = streams
         self.exporter = exporter
-        self.is_running = True
+        self.is_running = False
 
     def run(self):
         try:
+            self.is_running = True
             while self.is_running:
                 for stream in self.streams:
                     stream_data = stream.get_decibel_data()
@@ -104,7 +107,16 @@ class SignalConsumer:
 
     def stop(self):
         time.sleep(2)
+
         self.is_running = False
+
+        try:
+            Thread.join(self)
+        except RuntimeError:
+            pass
+
+        for stream in self.streams:
+            stream.close_stream()
         print("Exit...")
 
 
@@ -119,7 +131,10 @@ if __name__ == "__main__":
     a = AudioStream(1, 1, 44100)
     list_audio_streams = [a]
 
-    from sender import StdOut
+    from sender import FileSaver, StdOut
+    # exporter = FileSaver('data')
     exporter = StdOut()
     s = SignalConsumer(list_audio_streams, exporter)
-    s.run()
+    s.start()
+    time.sleep(3)
+    s.stop()

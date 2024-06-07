@@ -1,6 +1,7 @@
 import json
 import requests
 from abc import ABC, abstractmethod
+import sys, io
 
 
 class Exporter(ABC):
@@ -33,5 +34,10 @@ class FileSaver(Exporter):
         self.filename = filename
 
     def send(self, data: dict):
-        with open(self.filename, encoding='utf-8') as f:
+        with open(self.filename, mode='a', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, default=str)
+
+
+class StdOut(Exporter):
+    def send(self, data: dict):
+        print(data)
