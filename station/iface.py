@@ -117,19 +117,19 @@ class Application(Tk):
         self.station = AudioStation(audio_data, list_audio_streams)
 
         if choice == Choice.HTTP:
-            self.exporter = HttpSender(audio_data, param)
+            url = param if param else '192.168.0.1'
+            self.exporter = HttpSender(audio_data, url)
         elif choice == Choice.FILE:
-            self.exporter = FileSaver(audio_data, param)
+            filename = param if param else 'data.txt'
+            self.exporter = FileSaver(audio_data, filename)
         elif choice == Choice.QUEUE:
             self.exporter = QueueConsumer(audio_data)
-            # self.__print_buffer()
             self.thread = Thread(target=self.__print_buffer, daemon=True)
+            self.thread.start()
+
         self.stop_button.config(state=NORMAL)
         self.start_button.config(state=DISABLED)
         self.station.start()
-
-        self.thread.start()
-        # self.__print_buffer()
 
     def stop_stream(self):
         self.station.stop()
