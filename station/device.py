@@ -4,8 +4,36 @@ import json
 import numpy as np
 import time
 from typing import List
-from sender import Exporter
 from threading import Thread
+from observer import Subject, Observer
+
+
+class AudioData(Subject):
+    def __init__(self):
+        self._observers = []
+        self._signal = None
+        self._timestamp = None
+        self._mic_index = None
+
+    def register_observer(self, observer: Observer):
+        self._observers.append(observer)
+
+    def remove_observer(self, observer: Observer):
+        if observer in self._observers:
+            self._observers.remove(observer)
+
+    def notify_observers(self):
+        for observer in self._observers:
+            observer.update(self._signal, self._timestamp, self._mic_index)
+
+    def data_changed(self):
+        self.notify_observers()
+
+    def set_data(self, signal: int, timestamp: int, mic_index: int):
+        self._signal = signal
+        self._timestamp = timestamp
+        self._mic_index = mic_index
+        self.data_changed()
 
 
 class DeviceInfo:
@@ -61,13 +89,11 @@ class AudioStream:
             print(f"Error reading from {self.mic_index}: {e}")
         return data
 
-    def get_decibel_data(self) -> dict:
-        decibel_data = {
-            "signal_strength_db": self._sp.calculate_decibels(self.read_data()),
-            "time": time.time(),
-            "mic_index": self.mic_index
-        }
-        return decibel_data
+    def get_decibel_data(self) -> tuple:
+        db = self._sp.calculate_decibels(self.read_data())
+        ts = time.time()
+        ind = self.mic_index
+        return db, ts, ind
 
     def close_stream(self):
         self.stream.stop_stream()
@@ -86,38 +112,43 @@ class SignalProcessor:
         return decibels
 
 
-class SignalConsumer(Thread):
-    def __init__(self, streams: List[AudioStream], exporter: Exporter):
+class AudioStation(Thread):
+    def __init__(self, audio_data: AudioData, streams: List[AudioStream]):
         super().__init__(target=self.run)
+        self.audio_data = audio_data
         self.streams = streams
-        self.exporter = exporter
         self.is_running = False
 
     def run(self):
+        print("Start...")
+
         try:
             self.is_running = True
             while self.is_running:
                 for stream in self.streams:
-                    stream_data = stream.get_decibel_data()
-                    self.exporter.send(stream_data)
+                    db, ts, ind = stream.get_decibel_data()
+                    self.audio_data.set_data(db, ts, ind)
+
         except KeyboardInterrupt:
             print("Terminating...")
             for stream in self.streams:
                 stream.close_stream()
 
     def stop(self):
-        time.sleep(2)
+        if self.is_running:
+            self.is_running = False
 
-        self.is_running = False
+            try:
+                Thread.join(self)
+            except RuntimeError:
+                pass
 
-        try:
-            Thread.join(self)
-        except RuntimeError:
-            pass
+            for stream in self.streams:
+                stream.close_stream()
 
-        for stream in self.streams:
-            stream.close_stream()
-        print("Exit...")
+            print("Exit...")
+        else:
+            print("Nothing to stop...")
 
 
 if __name__ == "__main__":
@@ -127,14 +158,3 @@ if __name__ == "__main__":
         print(i)
 
     print(devs.get_mic_info_by_index(1))
-
-    a = AudioStream(1, 1, 44100)
-    list_audio_streams = [a]
-
-    from sender import FileSaver, StdOut
-    # exporter = FileSaver('data')
-    exporter = StdOut()
-    s = SignalConsumer(list_audio_streams, exporter)
-    s.start()
-    time.sleep(3)
-    s.stop()

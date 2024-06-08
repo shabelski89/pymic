@@ -1,19 +1,22 @@
 from tkinter import *
 from tkinter import ttk
-from device import DeviceInfo, AudioStream, SignalConsumer
-from sender import HttpSender, FileSaver, StdOut
-import sys, io
+from device import DeviceInfo, AudioStream, AudioData, AudioStation
+from consumer import HttpSender, FileSaver, QueueConsumer
+from threading import Thread
 
 
 class Choice:
     HTTP = 'HTTP'
     FILE = 'FILE'
-    STDOUT = 'STDOUT'
+    QUEUE = 'QUEUE'
 
 
 class Application(Tk):
     def __init__(self):
         super().__init__()
+        self.thread = None
+        self.station = None
+        self.exporter = None
         self.title("Audio Stream Configuration")
         self.geometry('960x480')
         # self.maxsize(640, 480)
@@ -37,7 +40,7 @@ class Application(Tk):
                           command=lambda i=self.dev_selected_box, j=self.dev_box: self.box_items_replace(i, j))
         r_button.grid(row=2, column=2, padx=5, pady=5, sticky=S)
 
-        self.combobox = ttk.Combobox(values=['HTTP', 'FILE', 'STDOUT'], state="readonly")
+        self.combobox = ttk.Combobox(values=['HTTP', 'FILE', 'QUEUE'], state="readonly")
         self.combobox.bind('<<ComboboxSelected>>', self.combobox_modified)
         self.combobox.grid(row=2, column=5, padx=5, pady=5, sticky=N+W)
 
@@ -76,7 +79,7 @@ class Application(Tk):
             self.choice_label.config(text="Filename:")
             self.choice_label.grid(row=2, column=5, padx=5, pady=5, sticky=S+W)
             self.choice_entry.grid(row=2, column=6, padx=5, pady=5, sticky=S+W)
-        elif choice == Choice.STDOUT:
+        elif choice == Choice.QUEUE:
             self.text.grid(row=4, column=1, padx=5, pady=5, sticky=N+W)
         else:
             print('CHOOSE')
@@ -100,7 +103,6 @@ class Application(Tk):
 
     def start_streams(self):
 
-
         mics = self.dev_selected_box.get(0, END)
         list_audio_streams = []
         for el in mics:
@@ -110,30 +112,34 @@ class Application(Tk):
 
         choice = self.get_choice()
         param = self.choice_entry.get()
-        if choice == Choice.HTTP:
-            self.exporter = HttpSender(param)
-        elif choice == Choice.FILE:
-            self.exporter = FileSaver(param)
-        elif choice == Choice.STDOUT:
-            self.exporter = StdOut()
-        self.stop_button.config(state=NORMAL)
 
-        self.signal_consumer = SignalConsumer(list_audio_streams, self.exporter)
-        self.signal_consumer.start()
+        audio_data = AudioData()
+        self.station = AudioStation(audio_data, list_audio_streams)
+
+        if choice == Choice.HTTP:
+            self.exporter = HttpSender(audio_data, param)
+        elif choice == Choice.FILE:
+            self.exporter = FileSaver(audio_data, param)
+        elif choice == Choice.QUEUE:
+            self.exporter = QueueConsumer(audio_data)
+            # self.__print_buffer()
+            self.thread = Thread(target=self.__print_buffer, daemon=True)
+        self.stop_button.config(state=NORMAL)
+        self.start_button.config(state=DISABLED)
+        self.station.start()
+
+        self.thread.start()
+        # self.__print_buffer()
 
     def stop_stream(self):
-        self.signal_consumer.stop()
+        self.station.stop()
+        self.stop_button.config(state=DISABLED)
+        self.start_button.config(state=NORMAL)
 
-    def stdout(self):
-        try:
-            while True:
-                for stream in self.signal_consumer.streams:
-                    stream_data = stream.get_decibel_data()
-                    self.text.insert(1.0, str(stream_data) + '\n')
-        except KeyboardInterrupt:
-            print("Terminating...")
-            for stream in self.signal_consumer.streams:
-                stream.close_stream()
+    def __print_buffer(self):
+        while True:
+            msg = self.exporter.deque.get()
+            self.text.insert(1.0, str(msg) + '\n')
 
 
 if __name__ == "__main__":
