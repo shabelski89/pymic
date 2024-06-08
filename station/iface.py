@@ -19,7 +19,6 @@ class Application(Tk):
         self.exporter = None
         self.title("Audio Stream Configuration")
         self.geometry('960x480')
-        # self.maxsize(640, 480)
         self.__iface_init()
 
     def __iface_init(self):
@@ -135,6 +134,8 @@ class Application(Tk):
         self.station.stop()
         self.stop_button.config(state=DISABLED)
         self.start_button.config(state=NORMAL)
+        if self.thread:
+            self.thread.join()
 
     def __print_buffer(self):
         while True:
