@@ -12,7 +12,7 @@ class QueueConsumer(Observer, Export):
         self._signal = None
         self._timestamp = None
         self._mic_index = None
-        self.deque = Queue()
+        self.deque = Queue(maxsize=1000)
 
     def update(self, signal, ts, ind):
         self._signal = signal
