@@ -1,7 +1,7 @@
 import json
 import requests
-from observer import Observer, Export
-from device import AudioData
+from .observer import Observer, Export
+from .device import AudioData
 from queue import Queue
 
 

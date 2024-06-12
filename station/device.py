@@ -5,7 +5,7 @@ import numpy as np
 import time
 from typing import List
 from threading import Thread
-from observer import Subject, Observer
+from .observer import Subject, Observer
 
 
 class AudioData(Subject):

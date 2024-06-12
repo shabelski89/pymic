@@ -1,7 +1,7 @@
 from tkinter import *
 from tkinter import ttk
-from device import DeviceInfo, AudioStream, AudioData, AudioStation
-from consumer import HttpSender, FileSaver, QueueConsumer
+from .device import DeviceInfo, AudioStream, AudioData, AudioStation
+from .consumer import HttpSender, FileSaver, QueueConsumer
 from threading import Thread
 from tkinter.messagebox import showwarning
 
