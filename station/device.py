@@ -128,6 +128,7 @@ class AudioStation(Thread):
                 for stream in self.streams:
                     db, ts, ind = stream.get_decibel_data()
                     self.audio_data.set_data(db, ts, ind)
+                time.sleep(1)
 
         except KeyboardInterrupt:
             print("Terminating...")
