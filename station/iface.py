@@ -22,11 +22,11 @@ class Application(Tk):
 
     def __iface_init(self):
 
-        self.frame_one = Frame(self, background="#ffffff", borderwidth=1)
-        self.frame_two = Frame(self, background="cyan", borderwidth=1)
-        self.frame_three = Frame(self, background="#ffffff", borderwidth=1)
-        self.frame_four = Frame(self, background="lavender", borderwidth=1)
-        self.frame_five = Frame(self, background="blue", borderwidth=1)
+        self.frame_one = Frame(self, borderwidth=1)
+        self.frame_two = Frame(self, borderwidth=1)
+        self.frame_three = Frame(self, borderwidth=1)
+        self.frame_four = Frame(self, borderwidth=1)
+        self.frame_five = Frame(self, borderwidth=1)
 
         self.frame_one.pack()
         self.frame_two.pack(fill=X)
