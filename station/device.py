@@ -5,7 +5,10 @@ import numpy as np
 import time
 from typing import List
 from threading import Thread
-from .observer import Subject, Observer
+try:
+    from .observer import Subject, Observer
+except ImportError:
+    from observer import Subject, Observer
 
 
 class AudioData(Subject):
@@ -96,8 +99,9 @@ class AudioStream:
         return db, ts, ind
 
     def close_stream(self):
-        self.stream.stop_stream()
-        self.stream.close()
+        if self.stream:
+            self.stream.stop_stream()
+            self.stream.close()
 
 
 class SignalProcessor:

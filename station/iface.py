@@ -1,9 +1,13 @@
 from tkinter import *
 from tkinter import ttk
-from .device import DeviceInfo, AudioStream, AudioData, AudioStation
-from .consumer import HttpSender, FileSaver, QueueConsumer
 from threading import Thread
 from tkinter.messagebox import showwarning
+try:
+    from .device import DeviceInfo, AudioStream, AudioData, AudioStation
+    from .consumer import HttpSender, FileSaver, QueueConsumer
+except ImportError:
+    from device import DeviceInfo, AudioStream, AudioData, AudioStation
+    from consumer import HttpSender, FileSaver, QueueConsumer
 
 
 CHOICES = {'HTTP': 'IP-address', 'FILE': 'Filename', 'QUEUE': None}

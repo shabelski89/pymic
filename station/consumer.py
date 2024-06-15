@@ -1,8 +1,12 @@
 import json
 import requests
-from .observer import Observer, Export
-from .device import AudioData
 from queue import Queue
+try:
+    from .observer import Observer, Export
+    from .device import AudioData
+except ImportError:
+    from observer import Observer, Export
+    from device import AudioData
 
 
 class QueueConsumer(Observer, Export):
