@@ -84,7 +84,9 @@ class AudioStream:
                                     input_device_index=self.mic_index)
 
     def read_data(self, exception_on_overflow: bool = False, dtype=np.int16):
-        self._open_stream()
+        if not self.stream:
+            self._open_stream()
+
         data = {}
         try:
             data = np.frombuffer(self.stream.read(self.chunk, exception_on_overflow=exception_on_overflow), dtype=dtype)
